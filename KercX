@@ -1,0 +1,187 @@
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KercHubGui"
+screenGui.Parent = playerGui
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 400, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0,12)
+frameCorner.Parent = mainFrame
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Text = "KERC HUB By Kerc912"
+title.Size = UDim2.new(1,0,0,50)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.Parent = mainFrame
+
+-- Close Button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0,30,0,30)
+closeButton.Position = UDim2.new(1,-35,0,10)
+closeButton.Text = "X"
+closeButton.BackgroundColor3 = Color3.fromRGB(150,50,50)
+closeButton.TextColor3 = Color3.fromRGB(255,255,255)
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = mainFrame
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0,6)
+closeCorner.Parent = closeButton
+
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+end)
+
+-- Open Button
+local openButton = Instance.new("TextButton")
+openButton.Size = UDim2.new(0,150,0,40)
+openButton.Position = UDim2.new(0,20,0,20)
+openButton.Text = "Open KERC HUB"
+openButton.BackgroundColor3 = Color3.fromRGB(50,50,50)
+openButton.TextColor3 = Color3.fromRGB(255,255,255)
+openButton.Font = Enum.Font.GothamBold
+openButton.Parent = screenGui
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0,8)
+openCorner.Parent = openButton
+
+openButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = true
+end)
+
+-- Tabs
+local tabFrame = Instance.new("Frame")
+tabFrame.Size = UDim2.new(1,0,0,40)
+tabFrame.Position = UDim2.new(0,0,0,50)
+tabFrame.BackgroundTransparency = 1
+tabFrame.Parent = mainFrame
+
+local activeTabColor = Color3.fromRGB(70,70,200)
+local inactiveTabColor = Color3.fromRGB(60,60,60)
+
+local function createTab(name, x)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0,120,1,0)
+    btn.Position = UDim2.new(0,x,0,0)
+    btn.Text = name
+    btn.BackgroundColor3 = inactiveTabColor
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = tabFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,8)
+    corner.Parent = btn
+    return btn
+end
+
+local serverTab = createTab("Server",0)
+local scriptsTab = createTab("Scripts",130)
+local executorTab = createTab("Executor",260)
+
+-- Scrolling Frame
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1,-20,1,-100)
+scrollFrame.Position = UDim2.new(0,10,0,95)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.ScrollBarThickness = 8
+scrollFrame.Parent = mainFrame
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0,5)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scrollFrame
+
+-- Update CanvasSize for all buttons
+scrollFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+10)
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scrollFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+10)
+end)
+
+-- Function Button with hover effect
+local function createFunctionButton(name,callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,0,40)
+    btn.Text = name
+    btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.Gotham
+    btn.Parent = scrollFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,8)
+    corner.Parent = btn
+
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    end)
+
+    btn.MouseButton1Click:Connect(callback)
+end
+
+-- Server functions including Disco
+local serverFunctions = {
+    {Name="Disco", Func=function() for i=1,10 do local p=Instance.new("Part",workspace); p.Anchored=true; p.Size=Vector3.new(5,5,5); p.Position=Vector3.new(math.random(-50,50),10,math.random(-50,50)); p.BrickColor=BrickColor.Random(); task.wait(0.2); p:Destroy() end end},
+    {Name="Speed", Func=function() player.Character.Humanoid.WalkSpeed=100 end},
+    {Name="Tool Stealer", Func=function() for _,v in pairs(Players:GetPlayers()) do if v.Backpack then for _,t in pairs(v.Backpack:GetChildren()) do t:Clone().Parent=player.Backpack end end end end},
+    {Name="Map BackRoom", Func=function() if workspace:FindFirstChild("Baseplate") then workspace.Baseplate:Destroy() end local p=Instance.new("Part",workspace); p.Size=Vector3.new(500,1,500); p.Anchored=true; p.Position=Vector3.new(0,0,0); p.BrickColor=BrickColor.new("Really black") end},
+    {Name="Kill All", Func=function() for _,v in pairs(Players:GetPlayers()) do if v~=player and v.Character then v.Character:BreakJoints() end end end},
+}
+
+-- Scripts functions
+local scriptsFunctions = {
+    {Name="Infinite Yield", Func=function() loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))() end},
+    {Name="Ghost Hub", Func=function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-GhostHub-Universal-Games-25151"))() end},
+}
+
+-- Executor functions
+local executorFunctions = {
+    {Name="Tiger X", Func=function() loadstring(game:HttpGet("https://raw.githubusercontent.com/balintTheDevX/Tiger-X-V3/main/Tiger%20X"))() end},
+    {Name="Fly GUI V3", Func=function() loadstring(game:HttpGet("https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt"))() end},
+    {Name="C00lgUi", Func=function() loadstring(game:GetObjects("rbxassetid://11801763945")[1].Source)() end},
+    {Name="Invisible", Func=function() loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-Invisible-FE-19153"))() end},
+    {Name="SheledoniSpawn", Func=function() loadstring(game:HttpGet("https://pastebin.com/raw/Z4yfVEP4"))() end},
+}
+
+-- Category
+local currentCategory = "Server"
+local function updateTabColors()
+    serverTab.BackgroundColor3 = (currentCategory=="Server") and activeTabColor or inactiveTabColor
+    scriptsTab.BackgroundColor3 = (currentCategory=="Scripts") and activeTabColor or inactiveTabColor
+    executorTab.BackgroundColor3 = (currentCategory=="Executor") and activeTabColor or inactiveTabColor
+end
+
+local function showCategory(category)
+    scrollFrame:ClearAllChildren()
+    local funcs = {}
+    if category=="Server" then funcs=serverFunctions
+    elseif category=="Scripts" then funcs=scriptsFunctions
+    elseif category=="Executor" then funcs=executorFunctions
+    end
+    for _,v in ipairs(funcs) do
+        createFunctionButton(v.Name,v.Func)
+    end
+    updateTabColors()
+end
+
+serverTab.MouseButton1Click:Connect(function() currentCategory="Server"; showCategory("Server") end)
+scriptsTab.MouseButton1Click:Connect(function() currentCategory="Scripts"; showCategory("Scripts") end)
+executorTab.MouseButton1Click:Connect(function() currentCategory="Executor"; showCategory("Executor") end)
+
+showCategory(currentCategory)
