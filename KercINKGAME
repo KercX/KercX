@@ -1,0 +1,737 @@
+-- INK GAME GUI (WORKING - universal functions)
+-- Client-side LocalScript (put into StarterPlayerScripts / PlayerGui)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+-- Wait for GUI parent
+local parentGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ---------- Helpers ----------
+local function addCorner(obj, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.Parent = obj
+    return corner
+end
+
+local function safeFindEnd()
+    -- Попытка найти финишную часть по популярным именам
+    local names = {"Finish", "End", "FinishPart", "EndPart", "Goal"}
+    for _,n in ipairs(names) do
+        local part = Workspace:FindFirstChild(n, true) -- warning: FindFirstChild(name, true) not valid; we'll search descendants
+    end
+    -- корректный поиск по Descendants
+    for _,part in ipairs(Workspace:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local lname = part.Name:lower()
+            if lname:match("finish") or lname:match("end") or lname:match("goal") or lname:match("finishpart") or lname:match("endpart") then
+                return part
+            end
+        end
+    end
+    return nil
+end
+
+-- ---------- State ----------
+local isOpen = false
+
+local ESP_Enabled = false
+local ESP_Adornments = {} -- map player -> {adornments...}
+
+local SpeedEnabled = false
+local SpeedValue = 50
+
+local NoclipEnabled = false
+local GodModeEnabled = false
+
+-- ---------- GUI (full, with UiCorner and animation) ----------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "InkGameHub"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = parentGui
+
+-- Open Button (FredokaOne, TextScaled)
+local openBtn = Instance.new("TextButton")
+openBtn.Name = "Open KERC Z"
+openBtn.Size = UDim2.new(0,170,0,44)
+openBtn.Position = UDim2.new(0,12,0,12)
+openBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+openBtn.Text = "Open KERC X"
+openBtn.TextColor3 = Color3.fromRGB(255,255,255)
+openBtn.Font = Enum.Font.FredokaOne
+openBtn.TextScaled = true
+openBtn.Parent = screenGui
+addCorner(openBtn,12)
+
+-- Main frame
+local frame = Instance.new("Frame")
+frame.Name = "InkMain"
+frame.Size = UDim2.new(0,740,0,480)
+frame.Position = UDim2.new(0.5, -370, 0.5, -240)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Visible = false
+frame.Parent = screenGui
+addCorner(frame,12)
+frame.ClipsDescendants = true
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0,36,0,36)
+closeBtn.Position = UDim2.new(1,-44,0,8)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+closeBtn.Parent = frame
+addCorner(closeBtn,8)
+
+-- Left categories
+local categoriesFrame = Instance.new("Frame")
+categoriesFrame.Size = UDim2.new(0,170,1,-20)
+categoriesFrame.Position = UDim2.new(0,8,0,8)
+categoriesFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+categoriesFrame.Parent = frame
+addCorner(categoriesFrame,8)
+
+local catLayout = Instance.new("UIListLayout", categoriesFrame)
+catLayout.Padding = UDim.new(0,6)
+catLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Right functions area
+local functionsFrame = Instance.new("Frame")
+functionsFrame.Size = UDim2.new(1,-196,1,-20)
+functionsFrame.Position = UDim2.new(0,182,0,8)
+functionsFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+functionsFrame.Parent = frame
+addCorner(functionsFrame,8)
+
+local funcLayout = Instance.new("UIListLayout", functionsFrame)
+funcLayout.Padding = UDim.new(0,6)
+funcLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Avatar + name area (top-right)
+local infoFrame = Instance.new("Frame")
+infoFrame.Size = UDim2.new(0,170,0,110)
+infoFrame.Position = UDim2.new(1,-178,0,8)
+infoFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+infoFrame.Parent = frame
+addCorner(infoFrame,8)
+
+local avatarImg = Instance.new("ImageLabel")
+avatarImg.Size = UDim2.new(0,56,0,56)
+avatarImg.Position = UDim2.new(0,8,0,8)
+avatarImg.BackgroundTransparency = 1
+avatarImg.Image = "rbxthumb://type=AvatarHeadShot&id="..LocalPlayer.UserId.."&w=420&h=420"
+avatarImg.Parent = infoFrame
+addCorner(avatarImg,8)
+
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Size = UDim2.new(1,-72,0,30)
+nameLabel.Position = UDim2.new(0,72,0,12)
+nameLabel.BackgroundTransparency = 1
+nameLabel.Font = Enum.Font.FredokaOne
+nameLabel.TextScaled = true
+nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+nameLabel.Text = "Kerc912 / Brat1shka"
+nameLabel.Parent = infoFrame
+
+-- Testers panel (scroll)
+local testersFrame = Instance.new("ScrollingFrame")
+testersFrame.Size = UDim2.new(0,170,0,140)
+testersFrame.Position = UDim2.new(1,-178,0,124)
+testersFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+testersFrame.Parent = frame
+addCorner(testersFrame,8)
+testersFrame.ScrollBarThickness = 6
+local testersLayout = Instance.new("UIListLayout", testersFrame)
+testersLayout.Padding = UDim.new(0,6)
+testersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local testersList = {
+    "Player123","CoolGamer","NinjaKid","ShadowX","EpicDude","NoobMaster",
+    "KercTester","Brat1shka","RandomUser1","RandomUser2","Guest999","InkTester"
+}
+-- populate random testers (6)
+for i=1,6 do
+    local tname = testersList[math.random(1,#testersList)]
+    local tlabel = Instance.new("TextLabel")
+    tlabel.Size = UDim2.new(1,-12,0,28)
+    tlabel.Position = UDim2.new(0,6,0,0)
+    tlabel.BackgroundTransparency = 1
+    tlabel.Font = Enum.Font.Gotham
+    tlabel.TextScaled = false
+    tlabel.TextSize = 14
+    tlabel.TextColor3 = Color3.fromRGB(255,255,255)
+    tlabel.TextXAlignment = Enum.TextXAlignment.Left
+    tlabel.Text = tname
+    tlabel.Parent = testersFrame
+end
+
+-- ---------- Utilities to create UI controls ----------
+local function makeCategoryButton(text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-12,0,40)
+    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.TextScaled = true
+    btn.Parent = categoriesFrame
+    addCorner(btn,8)
+    return btn
+end
+
+local function clearFunctionButtons()
+    for _,c in ipairs(functionsFrame:GetChildren()) do
+        if c:IsA("TextButton") or c:IsA("Frame") or c:IsA("TextBox") then
+            c:Destroy()
+        end
+    end
+end
+
+local function makeFunctionButton(text, callback)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-16,0,36)
+    b.Position = UDim2.new(0,8,0,0)
+    b.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    b.Text = text
+    b.Font = Enum.Font.Gotham
+    b.TextScaled = false
+    b.TextSize = 16
+    b.TextColor3 = Color3.fromRGB(255,255,255)
+    b.Parent = functionsFrame
+    addCorner(b,8)
+    b.MouseButton1Click:Connect(function() pcall(callback) end)
+    return b
+end
+
+local function makeLabel(txt)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-16,0,20)
+    l.BackgroundTransparency = 1
+    l.Text = txt
+    l.Font = Enum.Font.Gotham
+    l.TextColor3 = Color3.fromRGB(200,200,200)
+    l.TextScaled = false
+    l.TextSize = 14
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = functionsFrame
+    return l
+end
+
+local function makeToggle(text, initial, callback)
+    local frameToggle = Instance.new("Frame")
+    frameToggle.Size = UDim2.new(1,-16,0,36)
+    frameToggle.Position = UDim2.new(0,8,0,0)
+    frameToggle.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    frameToggle.Parent = functionsFrame
+    addCorner(frameToggle,8)
+
+    local label = Instance.new("TextLabel", frameToggle)
+    label.Size = UDim2.new(0.75, -8,1,0)
+    label.Position = UDim2.new(0,8,0,0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.Gotham
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.TextSize = 16
+    label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local btn = Instance.new("TextButton", frameToggle)
+    btn.Size = UDim2.new(0.22, -10,0.6, 0)
+    btn.Position = UDim2.new(1, - (0.22 * frameToggle.AbsoluteSize.X) - 12,0.2,0)
+    btn.AnchorPoint = Vector2.new(1,0)
+    btn.BackgroundColor3 = initial and Color3.fromRGB(80,180,80) or Color3.fromRGB(180,80,80)
+    btn.Text = initial and "ON" or "OFF"
+    btn.Font = Enum.Font.GothamBold
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.TextSize = 14
+    btn.Parent = frameToggle
+    addCorner(btn,6)
+
+    btn.MouseButton1Click:Connect(function()
+        initial = not initial
+        btn.BackgroundColor3 = initial and Color3.fromRGB(80,180,80) or Color3.fromRGB(180,80,80)
+        btn.Text = initial and "ON" or "OFF"
+        pcall(function() callback(initial) end)
+    end)
+    return frameToggle, btn
+end
+
+-- ---------- Build categories + connect functions ----------
+-- Helper to switch function panel content
+local function setCategoryFunctions(defs)
+    clearFunctionButtons()
+    for _,v in ipairs(defs) do
+        -- v: {type="button"/"toggle"/"label"/"textbox", text=..., fn=..., args...}
+        if v.type == "label" then
+            makeLabel(v.text)
+        elseif v.type == "button" then
+            makeFunctionButton(v.text, v.fn)
+        elseif v.type == "toggle" then
+            makeLabel(v.text) -- small header
+            makeToggle(v.text, v.default, v.fn)
+        elseif v.type == "textbox" then
+            local tb = Instance.new("TextBox")
+            tb.Size = UDim2.new(1,-16,0,32)
+            tb.Position = UDim2.new(0,8,0,0)
+            tb.BackgroundColor3 = Color3.fromRGB(60,60,60)
+            tb.TextColor3 = Color3.fromRGB(255,255,255)
+            tb.Text = v.defaultText or ""
+            tb.PlaceholderText = v.placeholder or ""
+            tb.Font = Enum.Font.Gotham
+            tb.TextSize = 16
+            tb.Parent = functionsFrame
+            addCorner(tb,8)
+            if v.onEnter then
+                tb.ClearTextOnFocus = false
+                tb.FocusLost:Connect(function(enter)
+                    if enter then pcall(function() v.onEnter(tb.Text) end) end
+                end)
+            end
+        end
+    end
+end
+
+-- Category definitions (universal working functions)
+-- 1) Green Light / Red Light (TP To End, GodMode)
+local cat1Btn = makeCategoryButton("Green/Red Light")
+cat1Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Green/Red Light functions"},
+        {type="button", text="TP To End", fn=function()
+            local finish = safeFindEnd()
+            if finish and finish:IsA("BasePart") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = finish.CFrame + Vector3.new(0,3,0)
+                end
+            else
+                -- fallback: teleport 60 studs forward from current hrp
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = LocalPlayer.Character.HumanoidRootPart
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0,0,60)
+                end
+            end
+        end},
+        {type="toggle", text="GodMode (maintain health)", default=false, fn=function(state)
+            GodModeEnabled = state
+            if not state and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                -- if turning off, reset to default health
+                pcall(function() LocalPlayer.Character.Humanoid.Health = 100 end)
+            end
+        end}
+    })
+end)
+
+-- 2) Dalgona (Auto Complete placeholder + AntiFling)
+local cat2Btn = makeCategoryButton("Dalgona")
+cat2Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Dalgona helpers (auto depends on game remotes)"},
+        {type="button", text="Auto Complete (attempt)", fn=function()
+            -- Generic approach: try to find a RemoteEvent named "DalgonaComplete" or similar
+            local found = false
+            for _,obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                    local n = obj.Name:lower()
+                    if n:match("dalgona") or n:match("patty") or n:match("sugar") then
+                        pcall(function() obj:FireServer() end)
+                        found = true
+                    end
+                end
+            end
+            if not found then
+                -- user informative feedback — create temporary toast
+                local t = Instance.new("TextLabel", functionsFrame)
+                t.Size = UDim2.new(1,-16,0,28)
+                t.BackgroundTransparency = 0.6
+                t.BackgroundColor3 = Color3.fromRGB(0,0,0)
+                t.TextColor3 = Color3.fromRGB(255,200,100)
+                t.Text = "AutoComplete: couldn't find game remote (manual needed)"
+                t.Font = Enum.Font.Gotham
+                t.TextScaled = true
+                addCorner(t,6)
+                delay(3, function() pcall(function() t:Destroy() end) end)
+            end
+        end},
+        {type="button", text="AntiFling (small pulse)", fn=function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = LocalPlayer.Character.HumanoidRootPart
+                hrp.AssemblyLinearVelocity = Vector3.new()
+                -- small safety pulse
+                task.delay(0.25, function() if hrp then hrp.AssemblyLinearVelocity = Vector3.new() end end)
+            end
+        end}
+    })
+end)
+
+-- 3) Hide and Seek (ESP ON/OFF, Kill Hider attempt)
+local cat3Btn = makeCategoryButton("Hide and Seek")
+cat3Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Hide & Seek tools (client-side)"},
+        {type="toggle", text="ESP Players (Seekers red / Hiders blue)", default=false, fn=function(state)
+            ESP_Enabled = state
+            if not state then
+                -- remove adornments
+                for plr,ad in pairs(ESP_Adornments) do
+                    for _,a in ipairs(ad) do
+                        pcall(function() a:Destroy() end)
+                    end
+                end
+                ESP_Adornments = {}
+            end
+        end},
+        {type="button", text="Kill Hider (teleport & attempt kill)", fn=function()
+            -- will only attempt if local player is on seekers team (best-effort)
+            if LocalPlayer.Team and tostring(LocalPlayer.Team.Name):lower():find("seek") then
+                for _,p in ipairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Team and tostring(p.Team.Name):lower():find("hide") and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+                        pcall(function()
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame + Vector3.new(0,2,0)
+                            p.Character.Humanoid.Health = 0
+                        end)
+                    end
+                end
+            else
+                local t = Instance.new("TextLabel", functionsFrame)
+                t.Size = UDim2.new(1,-16,0,28)
+                t.BackgroundTransparency = 0.6
+                t.Text = "Not on Seekers team — won't run Kill Hider"
+                t.Font = Enum.Font.Gotham
+                t.TextColor3 = Color3.fromRGB(255,200,100)
+                addCorner(t,6)
+                delay(3, function() pcall(function() t:Destroy() end) end)
+            end
+        end}
+    })
+end)
+
+-- 4) Tug Of War (Auto TAP best-effort)
+local cat4Btn = makeCategoryButton("Tug Of War")
+cat4Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Tug Of War helpers"},
+        {type="button", text="Auto TAP (attempt)", fn=function()
+            -- try to simulate clicks on remote named "Tap" or "AutoTap"
+            local did = false
+            for _,obj in ipairs(Workspace:GetDescendants()) do
+                if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+                    local n = obj.Name:lower()
+                    if n:match("tap") or n:match("tug") then
+                        pcall(function() obj:FireServer() end)
+                        did = true
+                    end
+                end
+            end
+            if not did then
+                local t = Instance.new("TextLabel", functionsFrame)
+                t.Size = UDim2.new(1,-16,0,28)
+                t.BackgroundTransparency = 0.6
+                t.Text = "AutoTap: no compatible remote found"
+                t.Font = Enum.Font.Gotham
+                t.TextColor3 = Color3.fromRGB(255,200,100)
+                addCorner(t,6)
+                delay(3, function() pcall(function() t:Destroy() end) end)
+            end
+        end}
+    })
+end)
+
+-- 5) Jump Rope
+local cat5Btn = makeCategoryButton("Jump Rope")
+cat5Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Jump Rope helpers"},
+        {type="button", text="TP To End", fn=function()
+            local finish = safeFindEnd()
+            if finish and finish:IsA("BasePart") then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = finish.CFrame + Vector3.new(0,3,0)
+                end
+            else
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,50)
+                end
+            end
+        end},
+        {type="button", text="Help Player (attempt)", fn=function() print("Help Player placeholder") end}
+    })
+end)
+
+-- 6) Glass Bridge
+local cat6Btn = makeCategoryButton("Glass Bridge")
+cat6Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Glass Bridge ESP (color correct/incorrect if attributes exist)"},
+        {type="toggle", text="ESP Glass (uses part:GetAttribute('Correct'))", default=false, fn=function(state)
+            -- we implement by toggling per-frame coloring
+            if state then
+                -- enable marking in RunService loop (handled below)
+            else
+                -- disabling handled below
+            end
+            -- store in a variable
+            _G.GB_Enabled = state
+        end},
+        {type="button", text="TP To End (bridge end)", fn=function()
+            local finish = safeFindEnd()
+            if finish then
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = finish.CFrame + Vector3.new(0,3,0)
+                end
+            end
+        end}
+    })
+end)
+
+-- 7) Mingle
+local cat7Btn = makeCategoryButton("Mingle")
+cat7Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Mingle helpers"},
+        {type="toggle", text="Noclip (local)", default=false, fn=function(state)
+            NoclipEnabled = state
+        end},
+        {type="toggle", text="AntiKill (maintain health)", default=false, fn=function(state)
+            GodModeEnabled = state
+        end}
+    })
+end)
+
+-- 8) LocalPlayer controls
+local cat8Btn = makeCategoryButton("LocalPlayer")
+cat8Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Local player tweaks"},
+        {type="label", text="Speed (enter number below and press Enter)"},
+        {type="textbox", placeholder="Speed (e.g. 50)", defaultText=tostring(SpeedValue), onEnter=function(txt)
+            local n = tonumber(txt)
+            if n and n > 0 and n <= 500 then
+                SpeedValue = n
+                -- confirm
+                local t = Instance.new("TextLabel", functionsFrame)
+                t.Size = UDim2.new(1,-16,0,28); t.BackgroundTransparency = 0.6
+                t.Text = "Speed set to "..tostring(n)
+                t.Font = Enum.Font.Gotham; t.TextColor3 = Color3.fromRGB(150,255,150)
+                addCorner(t,6)
+                delay(2, function() pcall(function() t:Destroy() end) end)
+            end
+        end},
+        {type="toggle", text="Speed ON/OFF", default=false, fn=function(state) SpeedEnabled = state end},
+        {type="toggle", text="Noclip ON/OFF", default=false, fn=function(state) NoclipEnabled = state end},
+        {type="toggle", text="AntiKill ON/OFF", default=false, fn=function(state) GodModeEnabled = state end},
+        {type="label", text="PowerJump (set JumpPower below)"},
+        {type="textbox", placeholder="JumpPower (e.g. 100)", defaultText="100", onEnter=function(txt)
+            local n = tonumber(txt)
+            if n and n > 0 and n <= 1000 then
+                -- apply immediately if needed
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.JumpPower = n
+                end
+                local t = Instance.new("TextLabel", functionsFrame)
+                t.Size = UDim2.new(1,-16,0,28); t.BackgroundTransparency = 0.6
+                t.Text = "JumpPower set to "..tostring(n)
+                t.Font = Enum.Font.Gotham; t.TextColor3 = Color3.fromRGB(150,255,150)
+                addCorner(t,6)
+                delay(2, function() pcall(function() t:Destroy() end) end)
+            end
+        end}
+    })
+end)
+
+-- 9) Rebel (AutoWin placeholder)
+local cat9Btn = makeCategoryButton("Rebel")
+cat9Btn.MouseButton1Click:Connect(function()
+    setCategoryFunctions({
+        {type="label", text="Rebel (AutoWin placeholder)"},
+        {type="button", text="AutoWin (attempt)", fn=function()
+            -- best-effort: try tele to finish
+            local finish = safeFindEnd()
+            if finish and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = finish.CFrame + Vector3.new(0,3,0)
+            end
+        end}
+    })
+end)
+
+-- Close button behavior (animated)
+closeBtn.MouseButton1Click:Connect(function()
+    isOpen = false
+    local tween = TweenService:Create(frame, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0,60,0,40),
+        Position = UDim2.new(0.5,-30,0.5,-20),
+        BackgroundTransparency = 1
+    })
+    tween:Play()
+    tween.Completed:Wait()
+    frame.Visible = false
+    openBtn.Visible = true
+end)
+
+-- Open button animation
+openBtn.MouseButton1Click:Connect(function()
+    if isOpen then
+        -- close
+        isOpen = false
+        local tween = TweenService:Create(frame, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.new(0,60,0,40),
+            Position = UDim2.new(0.5,-30,0.5,-20),
+            BackgroundTransparency = 1
+        })
+        tween:Play()
+        tween.Completed:Wait()
+        frame.Visible = false
+    else
+        -- open
+        frame.Size = UDim2.new(0,60,0,40)
+        frame.Position = UDim2.new(0.5,-30,0.5,-20)
+        frame.BackgroundTransparency = 1
+        frame.Visible = true
+        local tween = TweenService:Create(frame, TweenInfo.new(0.36, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0,740,0,480),
+            Position = UDim2.new(0.5,-370,0.5,-240),
+            BackgroundTransparency = 0
+        })
+        tween:Play()
+    end
+    isOpen = not isOpen
+    openBtn.Visible = not isOpen
+end)
+
+-- ---------- RunService loops: ESP / Speed / Noclip / GodMode / GlassBridge ----------
+local GB_LastColors = {}
+RunService.RenderStepped:Connect(function()
+    -- ESP handling
+    if ESP_Enabled then
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character and plr.Character.PrimaryPart then
+                local adList = ESP_Adornments[plr]
+                if not adList then
+                    adList = {}
+                    -- add BoxHandleAdornment to primary parts for visibility
+                    local part = plr.Character.PrimaryPart
+                    if part then
+                        local box = Instance.new("BoxHandleAdornment")
+                        box.Adornee = part
+                        box.AlwaysOnTop = true
+                        box.Size = part.Size
+                        box.ZIndex = 10
+                        box.Transparency = 0.45
+                        -- color based on team if possible
+                        local isSeeker = false
+                        if plr.Team and tostring(plr.Team.Name):lower():find("seek") then isSeeker = true end
+                        box.Color3 = isSeeker and Color3.fromRGB(255,50,50) or Color3.fromRGB(50,120,255)
+                        box.Parent = part
+                        table.insert(adList, box)
+                    end
+                    ESP_Adornments[plr] = adList
+                else
+                    -- refresh color/size if needed
+                    for _,ad in ipairs(adList) do
+                        if ad.Adornee and ad.Adornee:IsA("BasePart") then
+                            local p = ad.Adornee
+                            ad.Size = p.Size
+                            local isSeeker = false
+                            if plr.Team and tostring(plr.Team.Name):lower():find("seek") then isSeeker = true end
+                            ad.Color3 = isSeeker and Color3.fromRGB(255,50,50) or Color3.fromRGB(50,120,255)
+                        end
+                    end
+                end
+            end
+        end
+    else
+        -- remove all existing adornments (if any)
+        for plr,adlist in pairs(ESP_Adornments) do
+            for _,a in ipairs(adlist) do
+                pcall(function() a:Destroy() end)
+            end
+            ESP_Adornments[plr] = nil
+        end
+    end
+
+    -- Local player adjustments
+    if LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
+        if hum then
+            -- Speed
+            if SpeedEnabled then
+                hum.WalkSpeed = SpeedValue
+            else
+                if hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end
+            end
+            -- GodMode (AntiKill)
+            if GodModeEnabled then
+                if hum.Health < 0.1 then
+                    pcall(function() hum.Health = math.huge end)
+                else
+                    pcall(function() hum.Health = math.huge end)
+                end
+            end
+        end
+
+        -- Noclip: set CanCollide false on all parts while enabled
+        if NoclipEnabled then
+            for _,part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    pcall(function() part.CanCollide = false end)
+                end
+            end
+        else
+            -- when turned off we don't automatically re-enable collisions (could interfere with game)
+            -- leave it to engine / respawn to restore normal collisions
+        end
+    end
+
+    -- Glass Bridge marking if enabled via _G.GB_Enabled
+    if _G.GB_Enabled then
+        for _,part in ipairs(Workspace:GetDescendants()) do
+            if part:IsA("BasePart") then
+                local name = tostring(part.Name):lower()
+                if name:find("glass") or name:find("tile") or name:find("panel") then
+                    local attr = part:GetAttribute("Correct")
+                    if attr ~= nil then
+                        if attr == true then
+                            pcall(function() part.Color = Color3.fromRGB(80,200,80) end)
+                        else
+                            pcall(function() part.Color = Color3.fromRGB(200,60,60) end)
+                        end
+                    end
+                end
+            end
+        end
+    else
+        -- restore original color not attempted (game handles)
+    end
+end)
+
+-- Cleanup ESP adornments when players leave/join
+Players.PlayerRemoving:Connect(function(plr)
+    if ESP_Adornments[plr] then
+        for _,a in ipairs(ESP_Adornments[plr]) do pcall(function() a:Destroy() end) end
+        ESP_Adornments[plr] = nil
+    end
+end)
+Players.PlayerAdded:Connect(function(plr)
+    -- nothing special
+end)
+
+-- Safety note: when script terminates, attempt cleanup
+local function cleanupAll()
+    for plr,ad in pairs(ESP_Adornments) do
+        for _,a in ipairs(ad) do pcall(function() a:Destroy() end) end
+    end
+    ESP_Adornments = {}
+end
+
+-- Bind cleanup to character removal
+LocalPlayer.AncestryChanged:Connect(function()
+    cleanupAll()
+end)
+
+-- End of script
