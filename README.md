@@ -34,6 +34,4 @@
   <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nestjs/nestjs-original.svg" height="40" alt="nestjs logo"  />
   <img width="12" />
   <img src="https://https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg" height="40" alt="jest logo"  />
-</div>
-
-###
+</div
