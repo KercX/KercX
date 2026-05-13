@@ -2,7 +2,7 @@
 
 ###
 
-<p align="left">My name is Sanya and I'm a Anton Chigur,from CIS </p>
+<p align="left">My name is Sanya and I'm ,from CIS </p>
 
 ###
 
